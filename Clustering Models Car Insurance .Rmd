@@ -1,0 +1,190 @@
+---
+title: 'Taylor: Assignment 2'
+author: "Emily T"
+date: "4/10/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Assignment 2
+
+## Question 1
+
+```{R Data Transformation}
+
+##Pulled in the crash data and recoded any blank variables as NA##
+
+crash_data<-read.csv("/Users/emmydoo19/Desktop/BIA\ 6301/crash.csv", header=T, na.strings=c("","NA"))
+head(crash_data)
+str(crash_data)
+
+##Load in Car to Recode##
+library(car)
+
+##Recoded day of the week from numbers to words to be easier to understand##
+crash_data$Crash.Date.day.of.week <- factor(crash_data$Crash.Date.day.of.week, levels = c(1,2,3,4,5,6,7), labels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+
+#Check to make sure day of the week changed##
+str(crash_data)
+
+```
+
+##Added Region Column
+```{R Adding Region Column}
+##Added Column of regions in the US, mentioned in HW mainly focused in midwest##
+crash_data$US_Region <- NA
+crash_data$US_Region <- crash_data$State
+
+
+crash_data$US_Region<-recode(crash_data$US_Region, "c('Connecticut','Maine','Massachusetts','New Hampshire','Rhode Island','Vermont','New Jersey','New York','Pennsylvania')='Northeast'")
+                             
+crash_data$US_Region<-recode(crash_data$US_Region, "c('Delaware','Florida','Georgia','Maryland','North Carolina','South Carolina','Virginia','District of Columbia','West Virginia','Alabama','Kentucky','Mississippi','Tennessee','Arkansas','Louisiana','Oklahoma','Texas')='South'")
+
+crash_data$US_Region<-recode(crash_data$US_Region, "c('Arizona','Colorado','Idaho','Montana','Nevada','New Mexico','Utah','Wyoming','Alaska','California','Hawaii','Oregon','Washington')='West'")
+
+crash_data$US_Region<-recode(crash_data$US_Region, "c('Illinois','Indiana','Michigan','Ohio','Wisconsin','Iowa','Kansas','Minnesota','Missouri','Nebraska','North Dakota','South Dakota')='Midwest'")
+
+##Check to make sure recoding worked#
+str(crash_data$US_Region)
+
+```
+
+###Check for blanks, unknowns, NA's 
+
+```{R Check for Blanks}
+##Check for blanks, unknowns, and NA##
+sum(is.na(crash_data$State))
+sum(is.na(crash_data$Atmospheric.Condition))
+sum(is.na(crash_data$Crash.Date))
+sum(is.na(crash_data$Fatalities.in.crash))
+sum(is.na(crash_data$Roadway))
+sum(is.na(crash_data$Age))
+sum(is.na(crash_data$Alcohol.Results))
+sum(is.na(crash_data$Person.Type))
+sum(is.na(crash_data$Drug.Involvement))
+sum(is.na(crash_data$Race))
+sum(is.na(crash_data$Gender))
+sum(is.na(crash_data$Injury.Severity))
+sum(is.na(crash_data$Crash.Date.year))
+sum(is.na(crash_data$Crash.Date.month))
+sum(is.na(crash_data$Crash.Date.day.of.month))
+sum(is.na(crash_data$Crash.Date.day.of.week))
+
+## The variables with NA items is age, alcohol, and race##
+```
+
+### Update "N"
+```{R Changing "N"}
+## Now recode all \N variables to unknown##
+crash_data <- replace(crash_data,crash_data=="\\N","Unknown")
+
+##Check to make sure \N has been replaced##
+
+table(crash_data$Race)
+
+##Re-Factor without \\N variable##
+crash_data$Drug.Involvement <- factor(crash_data$Drug.Involvement)
+table(crash_data$Drug.Involvement)
+
+crash_data$Roadway <- factor(crash_data$Roadway)
+table(crash_data$Roadway)
+
+crash_data$Race <- factor(crash_data$Race)
+table(crash_data$Race)
+
+##Only 70 numbers missing from age, decided to replace with average,since Kprototype cant run with NA variables#
+mean(crash_data$Age, trim = 0, na.rm = TRUE)
+
+
+crash_data[ ,6][is.na(crash_data[ ,6] ) ] = 38
+
+sum(is.na(crash_data$Age))
+
+##Check structure of data##
+str(crash_data)
+
+##Decided to drop Race Information since over 50% of the data is unknown/NA, also potential issues with discrimination for insurance company. Cant think of any positive reason to include it##
+
+##Also removed Crash date year because we know its all from 2011##
+crash_data1<-crash_data[,c(-10,-13)]  
+```
+
+###Keeping Alcohol Rationale
+
+```{R Alcohol Variable}
+#Decided to keep data on alcohol despite large number of NA, feel there is potiential value in this data due to high correlation between drunk driving and car wrecks##
+##Recoded Alcohol into under, over legal limit factor to run through KMode##
+
+
+crash_data1$Alcohol.Results <- factor(crash_data1$Alcohol.Results, levels = c(0.00,0.01:0.08,0.09:0.99), labels = c("No Drink", "Under Limit", "Over Limit")) 
+
+str(crash_data1$Alcohol.Results)
+
+table(crash_data1$Alcohol.Results)
+
+
+
+                        
+
+
+```
+
+##Question 2
+
+### K Prototype
+```{R KPrototype}
+library(clustMixType)
+
+##had to drop alcohol results cannot run with missing values##
+crash_data_noNA<-crash_data1[,c(-7)]
+
+crash_data1_kprototype <- kproto(crash_data_noNA, k=3)
+
+summary(crash_data1_kprototype)
+
+crash_data_noNA$cluster_kproto <- crash_data1_kprototype$cluster
+
+str(crash_data_noNA)
+
+head(subset(crash_data_noNA, cluster_kproto==1, select=(1:14)))
+head(subset(crash_data_noNA, cluster_kproto==2, select=(1:14)))
+head(subset(crash_data_noNA, cluster_kproto==3, select=(1:14)))
+
+
+```
+
+### K Mode 
+```{R K Mode}
+
+str(crash_data1)
+
+##Remove number variables so only categorical remains##
+
+crash_data_categorical<-crash_data1[,c(-4,-6,-7,-12,-13)]
+
+
+##Cheeck to make sure only factors remain##
+str(crash_data_categorical)
+
+library(klaR)
+
+set.seed(123)
+crash_data_kmodes<- kmodes(crash_data_categorical[,1:10], modes=3, iter.max=10)
+
+crash_data_kmodes
+
+set.seed(123)
+crash_data_categorical$cluster_kmodes <- crash_data_kmodes$cluster
+
+head(subset(crash_data_categorical, cluster_kmodes==1))
+
+head(subset(crash_data_categorical, cluster_kmodes==2))
+
+head(subset(crash_data_categorical, cluster_kmodes==3))
+
+```
+
+
