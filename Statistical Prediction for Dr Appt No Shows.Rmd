@@ -1,0 +1,164 @@
+---
+title: "Final Project"
+author: "Emily T"
+date: "4/29/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#Final Project
+
+##EDA
+```{R Data Processing}
+DrApptNoShow<-read.csv("/Users/emmydoo19/Desktop/BIA\ 6301/DrApptNoShow.csv")
+str(DrApptNoShow)
+
+DrApptNoShow <- DrApptNoShow[,c(-1,-2)]
+sum(is.na(DrApptNoShow))
+
+DrApptNoShow$Scholarship <- factor(DrApptNoShow$Scholarship, levels = c(0,1), labels = c("No", "Yes"))
+DrApptNoShow$Hipertension <- factor(DrApptNoShow$Hipertension, levels = c(0,1), labels = c("No", "Yes"))
+DrApptNoShow$Diabetes <- factor(DrApptNoShow$Diabetes, levels = c(0,1), labels = c("No", "Yes"))
+DrApptNoShow$Alcoholism <- factor(DrApptNoShow$Alcoholism, levels = c(0,1), labels = c("No", "Yes"))
+DrApptNoShow$SMS_received <- factor(DrApptNoShow$SMS_received, levels = c(0,1), labels = c("No", "Yes"))
+DrApptNoShow$Handcap <- factor(DrApptNoShow$Handcap)
+DrApptNoShow$No.show <- factor(DrApptNoShow$No.show)
+
+str(DrApptNoShow)
+
+```
+#K Prototype
+```{R K Prototype}
+library(clustMixType)
+
+DrAppNoShow_kprototype <- kproto(DrApptNoShow, k=3)
+
+summary(DrAppNoShow_kprototype)
+
+DrApptNoShow$cluster_kproto <- DrAppNoShow_kprototype$cluster
+
+str(DrApptNoShow)
+
+head(subset(DrApptNoShow, cluster_kproto==1, select=(1:12)))
+head(subset(DrApptNoShow, cluster_kproto==2, select=(1:12)))
+head(subset(DrApptNoShow, cluster_kproto==3, select=(1:12)))
+
+```
+
+
+##K Mode Cluster
+```{R K Mode Cluster}
+
+library(car)
+DrApptNoShow$Age<- factor(DrApptNoShow$Age)
+
+str(DrApptNoShow)
+
+
+library(klaR)
+
+set.seed(123)
+DrApptNoShow_kmodes<- kmodes(DrApptNoShow[,1:12], modes=3, iter.max=10)
+
+DrApptNoShow_kmodes
+
+set.seed(123)
+DrApptNoShow$cluster_kmodes <- DrApptNoShow_kmodes$cluster
+
+head(subset(DrApptNoShow, cluster_kmodes==1))
+
+head(subset(DrApptNoShow, cluster_kmodes==2))
+
+head(subset(DrApptNoShow, cluster_kmodes==3))
+
+
+```
+
+##Association Rules
+```{R Association Rules}
+
+library(arules)
+
+str(DrApptNoShow)
+DrApptNoShow <- DrApptNoShow[,c(-13,-14)]
+DrApptNoShow$Age <- as.factor(DrApptNoShow$Age)
+
+NoShowARules <- apriori(DrApptNoShow, parameter = list(support =
+                          0.1, confidence = 0.8, minlen = 2))
+
+print(NoShowARules) 
+
+summary(NoShowARules)
+
+NoShowARules_Pruned <-NoShowARules[!is.redundant(NoShowARules)]
+
+print(NoShowARules_Pruned)
+
+NoShowARules_PrunedSort <- sort(NoShowARules_Pruned, by = c("lift"))
+inspect(NoShowARules_PrunedSort[1:10])
+
+NoShowRules_RHS_Yes<-apriori(data=DrApptNoShow, parameter=list(supp=0.001,conf = 0.08), appearance = list(default="lhs",rhs="No.show=Yes"))
+
+NoShowRules_LHS_Yes<-apriori(data=DrApptNoShow, parameter=list(supp=0.001,conf = 0.08), appearance = list(lhs="No.show=Yes",default="rhs"))
+
+NoShowRules_RHS_Yes1<-sort(NoShowRules_RHS_Yes, decreasing=TRUE,by="lift")
+inspect(NoShowRules_RHS_Yes1[1:5])
+
+NoShowRules_LHS_Yes<-sort(NoShowRules_LHS_Yes, decreasing=TRUE,by="lift")
+inspect(NoShowRules_LHS_Yes[1:5])
+
+library(arulesViz)
+
+plot(NoShowRules_RHS_Yes1, method="graph", control=list(type="items"))
+
+```
+
+##Naive Bayes
+```{R Naive Bayes Model}
+
+set.seed(123)
+
+#80/20 Split
+DrApptNoShowTRAIN <- DrApptNoShow[1:88422, ]
+DrApptNoShowTEST <- DrApptNoShow[88423:110527,]
+
+
+DrApptNoShowTRAIN$No.show<- as.factor(DrApptNoShowTRAIN$No.show)
+DrApptNoShowTEST$No.show <- as.factor(DrApptNoShowTEST$No.show)
+
+str(DrApptNoShowTRAIN)
+str(DrApptNoShowTEST)
+
+library(e1071)
+library(caret)
+
+#Train
+set.seed(123)
+NoShowNB<- naiveBayes(as.factor(No.show)~ ., data = DrApptNoShowTRAIN)
+
+
+
+nb_pred<- predict(NoShowNB, DrApptNoShowTEST)
+nb_tabs<- table(nb_pred, DrApptNoShowTEST$No.show)
+
+nb_tabs
+prop.table(nb_tabs)
+
+
+nb_pred1<- predict(NoShowNB, DrApptNoShowTRAIN)
+nb_tabs1<- table(nb_pred1, DrApptNoShowTRAIN$No.show)
+
+nb_tabs1
+prop.table(nb_tabs1)
+
+
+
+
+```
+
+
+22102
+
+
