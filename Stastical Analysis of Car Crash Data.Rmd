@@ -1,0 +1,415 @@
+---
+title: "Taylor Assignment 3"
+author: "Emily T"
+date: "4/22/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+##Association Rules and Data Prep
+```{R Data Transformation}
+
+##Pulled in the crash data and recoded any blank variables as NA##
+
+crash_data<-read.csv("/Users/emmydoo19/Desktop/BIA\ 6301/crash.csv", header=T, na.strings=c("","NA"))
+head(crash_data)
+str(crash_data)
+
+##Load in Car to Recode##
+library(car)
+
+##Recoded day of the week from numbers to words to be easier to understand##
+crash_data$Crash.Date.day.of.week <- factor(crash_data$Crash.Date.day.of.week, levels = c(1,2,3,4,5,6,7), labels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+
+#Check to make sure day of the week changed##
+str(crash_data)
+
+```
+
+###Added Region Column
+```{R Adding Region Column}
+##Added Column of regions in the US, mentioned in HW mainly focused in midwest##
+crash_data$US_Region <- NA
+crash_data$US_Region <- crash_data$State
+
+library(car)
+
+crash_data$US_Region<-Recode(crash_data$US_Region, "c('Connecticut','Maine','Massachusetts','New Hampshire','Rhode Island','Vermont','New Jersey','New York','Pennsylvania')='Northeast'")
+                             
+crash_data$US_Region<-Recode(crash_data$US_Region, "c('Delaware','Florida','Georgia','Maryland','North Carolina','South Carolina','Virginia','District of Columbia','West Virginia','Alabama','Kentucky','Mississippi','Tennessee','Arkansas','Louisiana','Oklahoma','Texas')='South'")
+
+crash_data$US_Region<-Recode(crash_data$US_Region, "c('Arizona','Colorado','Idaho','Montana','Nevada','New Mexico','Utah','Wyoming','Alaska','California','Hawaii','Oregon','Washington')='West'")
+
+crash_data$US_Region<-Recode(crash_data$US_Region, "c('Illinois','Indiana','Michigan','Ohio','Wisconsin','Iowa','Kansas','Minnesota','Missouri','Nebraska','North Dakota','South Dakota')='Midwest'")
+
+##Check to make sure recoding worked#
+str(crash_data$US_Region)
+
+```
+
+###Check for blanks, unknowns, NA's 
+
+```{R Check for Blanks}
+##Check for blanks, unknowns, and NA##
+sum(is.na(crash_data$State))
+sum(is.na(crash_data$Atmospheric.Condition))
+sum(is.na(crash_data$Crash.Date))
+sum(is.na(crash_data$Fatalities.in.crash))
+sum(is.na(crash_data$Roadway))
+sum(is.na(crash_data$Age))
+sum(is.na(crash_data$Alcohol.Results))
+sum(is.na(crash_data$Person.Type))
+sum(is.na(crash_data$Drug.Involvement))
+sum(is.na(crash_data$Race))
+sum(is.na(crash_data$Gender))
+sum(is.na(crash_data$Injury.Severity))
+sum(is.na(crash_data$Crash.Date.year))
+sum(is.na(crash_data$Crash.Date.month))
+sum(is.na(crash_data$Crash.Date.day.of.month))
+sum(is.na(crash_data$Crash.Date.day.of.week))
+
+## The variables with NA items is age, alcohol, and race##
+```
+
+### Update "N"
+```{R Changing "N"}
+## Now recode all \N variables to unknown##
+crash_data <- replace(crash_data,crash_data=="\\N","Unknown")
+
+##Check to make sure \N has been replaced##
+
+table(crash_data$Race)
+
+##Re-Factor without \\N variable##
+crash_data$Drug.Involvement <- factor(crash_data$Drug.Involvement)
+table(crash_data$Drug.Involvement)
+
+crash_data$Roadway <- factor(crash_data$Roadway)
+table(crash_data$Roadway)
+
+crash_data$Race <- factor(crash_data$Race)
+table(crash_data$Race)
+
+##Only 70 numbers missing from age, decided to replace with average,since Kprototype cant run with NA variables#
+mean(crash_data$Age, trim = 0, na.rm = TRUE)
+
+
+crash_data[ ,6][is.na(crash_data[ ,6] ) ] = 38
+
+sum(is.na(crash_data$Age))
+
+##Check structure of data##
+str(crash_data)
+
+##Decided to drop Race Information since over 50% of the data is unknown/NA, also potential issues with discrimination for insurance company. Cant think of any positive reason to include it##
+
+##Also removed Crash date year because we know its all from 2011##
+crash_data1<-crash_data[,c(-10,-13)]  
+```
+
+### Keeping Alcohol Rationale
+
+```{R Alcohol Variable}
+#Decided to keep data on alcohol despite large number of NA, feel there is potiential value in this data due to high correlation between drunk driving and car wrecks##
+##Recoded Alcohol into under, over legal limit factor to run through KMode##
+
+
+crash_data1$Alcohol.Results <- factor(crash_data1$Alcohol.Results, levels = c(0.00,0.01:0.08,0.09:0.99), labels = c("No Drink", "Under Limit", "Over Limit")) 
+
+crash_data1$Alcohol.Results <- as.character(crash_data1$Alcohol.Results)
+
+crash_data1$Alcohol.Results[is.na(crash_data1$Alcohol.Results)] <- "Unknown" 
+
+crash_data1$Alcohol.Results <- as.factor(crash_data1$Alcohol.Results)
+
+
+
+
+str(crash_data1$Alcohol.Results)
+table(crash_data1$Alcohol.Results)
+str(crash_data1)
+
+
+
+```
+
+```{R Prepping Data for ARules}
+##Drop Crash Date Already Have Month and Day
+#Change Numbers to Factors
+
+crash_dataAR <- crash_data1[,-3]
+
+crash_dataAR$Fatalities.in.crash <- factor(crash_dataAR$Fatalities.in.crash)
+
+crash_dataAR$Age <- as.integer(crash_dataAR$Age)
+crash_dataAR$Age <- factor(crash_dataAR$Age)
+crash_dataAR$Crash.Date.month <- factor(crash_dataAR$Crash.Date.month)
+crash_dataAR$Crash.Date.day.of.month <- factor(crash_dataAR$Crash.Date.day.of.month)
+
+
+
+str(crash_dataAR)
+
+
+```
+
+## Association Rules 
+```{R Association Rules}
+
+library(arules)
+
+CrashDataRules <- apriori(crash_dataAR, parameter = list(support =
+                          0.01, confidence = 0.6, minlen = 2))
+
+print(CrashDataRules) 
+
+summary(CrashDataRules)
+
+CrashDataRules_Pruned <-CrashDataRules[!is.redundant(CrashDataRules)]
+
+print(CrashDataRules_Pruned)
+
+CrashDataRules_PrunedSort <- sort(CrashDataRules_Pruned, by = c("confidence", "lift"))
+inspect(CrashDataRules_PrunedSort[1:10])
+
+West_rules <- subset(CrashDataRules_Pruned, items %pin% "US.Region=West")
+print(West_rules)
+inspect(West_rules[1:10])
+```
+
+
+## KNN Model 
+```{r KNN Model}
+#Original Model 
+
+bank.df <- read.csv("/Users/emmydoo19/Desktop/BIA\ 6301/UniversalBank.csv")
+dim(bank.df)
+
+bank.df$PersonalLoanYes <- ifelse(bank.df$Personal.Loan== 1, "Yes", "No")
+bank.df<-bank.df[,c(15,1:14)]
+bank.df<-bank.df[,-2]
+bank.df<-bank.df[,-5]
+bank.df<-bank.df[,-9]
+
+ZBank <- as.data.frame(scale(bank.df[,c(2:8)]))
+
+library(psych)
+describe(bank.df$Age)
+describe(ZBank$Age)
+
+ZDataCombined<-cbind(bank.df[,c(1,8:12)], ZBank[,])
+ZDataCombined<-ZDataCombined[complete.cases(ZDataCombined),]
+ZDataCombined<-ZDataCombined[,-2]
+
+
+
+
+TrainZBank <- ZDataCombined[1:4000, 2:12 ]
+TestZBank <-ZDataCombined[4001:5000, 2:12 ]
+
+TrainZBankLabel <- ZDataCombined[1:4000, 1]
+TestZBankLabel <- ZDataCombined[4001:5000, 1]
+
+library(class)
+
+set.seed(123)
+PredictionZBank <- knn(train=TrainZBank, test=TestZBank, cl=TrainZBankLabel, k=63)
+
+KnnZTabs <- table(TestZBankLabel, PredictionZBank)
+
+prop.table(KnnZTabs)
+
+
+
+#Model Selection Section
+
+TrainZCombined <-ZDataCombined[1:4000,]
+TestZCombined <- ZDataCombined[4001:5000,]
+
+
+library(caret)
+
+options(warn=-1)
+
+cvCtrl <- trainControl(method="cv", number=10) 
+set.seed(123)
+PersonalLoan_cv_knn<-train(PersonalLoanYes~., data=TrainZCombined, method="knn", metric="Accuracy", trControl=cvCtrl)
+PersonalLoan_cv_knn
+
+TestZFactor<-data.frame(TestZCombined)
+TestZFactor$PersonalLoanYes <-factor(TestZFactor$PersonalLoanYes)
+
+actual <- (TestZFactor$PersonalLoanYes)
+predicted <- predict(PersonalLoan_cv_knn, TestZCombined, type="raw")
+results.matrix.knn <- confusionMatrix(predicted, actual, positive="Yes")
+print(results.matrix.knn) 
+
+
+
+```
+
+## Naive Bayes Model 
+```{R Naive Bayes Model}
+#Original Model
+bank.df <- read.csv("/Users/emmydoo19/Desktop/BIA\ 6301/UniversalBank.csv")
+bank.df$Personal.Loan <- factor(bank.df$Personal.Loan, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$Securities.Account <- factor(bank.df$Securities.Account, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$CD.Account <- factor(bank.df$CD.Account, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$Online <- factor(bank.df$Online, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$Education <- factor(bank.df$Education, levels = c(1,2,3), labels = c("Undergrad", "Graduate", "Advanced/Professional"))
+bank.df$CreditCard <- factor(bank.df$CreditCard, levels = c(0,1), labels = c("No", "Yes"))
+
+bank.df<-bank.df[,c(10, 1:9, 11:14)]
+bank.df<-bank.df[,c(-2,-6)]
+
+str(bank.df)
+
+PersonalLoanTrain <-bank.df[1:4000, ]
+PersonalLoanTest <- bank.df[4001:5000, ]
+
+library(e1071)
+Loan_nb<- naiveBayes(Personal.Loan ~ ., data = PersonalLoanTrain)
+
+nb_pred<- predict(Loan_nb, PersonalLoanTest)
+nb_tabs<- table(nb_pred, PersonalLoanTest$Personal.Loan)
+
+nb_tabs
+
+prop.table(nb_tabs)
+
+#Model Selection Section
+library(caret)
+
+options(warn=-1)
+
+cvCtrl <- trainControl(method="cv", number=10) 
+set.seed(123)
+PersonalLoan_cv_nb<-train(Personal.Loan~., data=PersonalLoanTrain, method = 'naive_bayes', metric="Accuracy", trControl=cvCtrl)
+PersonalLoan_cv_nb
+
+
+
+actual <- PersonalLoanTest$Personal.Loan
+predicted <- predict(PersonalLoan_cv_nb, PersonalLoanTest, type="raw")
+results.matrix.nb <- confusionMatrix(predicted, actual, positive="Yes")
+print(results.matrix.nb)
+
+
+
+```
+
+##Desicion Tree
+```{R Desicion Tree Model}
+#Original Model 
+bank.df <- read.csv("/Users/emmydoo19/Desktop/BIA\ 6301/UniversalBank.csv")
+bank.df$Personal.Loan <- factor(bank.df$Personal.Loan, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$Securities.Account <- factor(bank.df$Securities.Account, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$CD.Account <- factor(bank.df$CD.Account, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$Online <- factor(bank.df$Online, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$Education <- factor(bank.df$Education, levels = c(1,2,3), labels = c("Undergrad", "Graduate", "Advanced/Professional"))
+bank.df$CreditCard <- factor(bank.df$CreditCard, levels = c(0,1), labels = c("No", "Yes"))
+
+bank.df<-bank.df[,c(10, 1:9, 11:14)]
+bank.df<-bank.df[,c(-2,-6)]
+
+library(rpart)
+library(rpart.plot)
+
+set.seed(123)
+
+PersonalLoanTrain <- bank.df[1:4000, ]
+PersonalLoanTest <- bank.df[4001:5000, ]
+
+prop.table(table(PersonalLoanTrain$Personal.Loan))
+prop.table(table(PersonalLoanTest$Personal.Loan))
+
+set.seed(123)
+PersonalLoanRPart<-rpart(PersonalLoanTrain$Personal.Loan ~., method="class", parms = list(split="gini"), data=PersonalLoanTrain)
+prp(PersonalLoanRPart, type=1, extra=1, split.font=1, varlen = -10)
+
+rpart.plot(PersonalLoanRPart, type=0, extra=101)
+
+cptable<-printcp(PersonalLoanRPart)
+cptable
+plotcp(PersonalLoanRPart, minline=TRUE, col="red") 
+
+set.seed(123)
+PersonalLoanRpartElbow <- rpart(PersonalLoanTrain$Personal.Loan~., method="class", parms = list(split="gini"), control=rpart.control(maxdepth=4), data=PersonalLoanTrain)
+
+rpart.plot(PersonalLoanRpartElbow, type=0, extra=101)
+
+## Now use model on the Test Set##
+
+set.seed(123)
+PersonalLoanRPart<-rpart(PersonalLoanTest$Personal.Loan ~., method="class", parms = list(split="gini"), data=PersonalLoanTest)
+prp(PersonalLoanRPart, type=1, extra=1, split.font=1, varlen = -10)
+
+rpart.plot(PersonalLoanRPart, type=0, extra=101)
+
+cptable<-printcp(PersonalLoanRPart)
+cptable
+plotcp(PersonalLoanRPart, minline=TRUE, col="red") 
+
+set.seed(123)
+PersonalLoanRpartElbow <- rpart(PersonalLoanTest$Personal.Loan~., method="class", parms = list(split="gini"), control=rpart.control(maxdepth=3), data=PersonalLoanTest)
+
+rpart.plot(PersonalLoanRpartElbow, type=0, extra=101)
+
+Tree_Pred<- predict(PersonalLoanRPart, PersonalLoanTest, type = "class")
+Tree_tabs<- table(Tree_Pred, PersonalLoanTest$Personal.Loan)
+
+Tree_tabs
+
+prop.table(Tree_tabs)
+
+
+#Model Selection Section
+
+library(caret)
+
+options(warn=-1)
+
+cvCtrl <- trainControl(method="cv", number=10) 
+set.seed(123)
+PersonalLoan_cv_dt<-train(Personal.Loan~., data=PersonalLoanTrain, method="rpart", metric="Accuracy", trControl=cvCtrl)
+PersonalLoan_cv_dt
+
+actual <- PersonalLoanTest$Personal.Loan
+predicted <- predict(PersonalLoan_cv_dt, PersonalLoanTest, type="raw")
+results.matrix.dt <- confusionMatrix(predicted, actual, positive="Yes")
+print(results.matrix.dt)
+
+
+```
+
+##ROC Curve Model Compairision 
+```{R ROC Curves}
+
+library(ROCR)
+
+rpart_pred_prob <- predict(PersonalLoan_cv_dt, PersonalLoanTest, type="prob") 
+rpart_pred_prob_2 <- prediction(rpart_pred_prob[,2], PersonalLoanTest$Personal.Loan)
+rpart.perf <- performance(rpart_pred_prob_2,"tpr","fpr")
+
+knn_pred_prob <- predict(PersonalLoan_cv_knn, TestZCombined, type="prob")
+knn_pred_prob_2 <- prediction(knn_pred_prob[,2], TestZCombined$PersonalLoan)
+knn.perf <- performance(knn_pred_prob_2,"tpr","fpr")
+
+nb_pred_prob <- predict(PersonalLoan_cv_dt, PersonalLoanTest, type="prob")
+nb_pred_prob_2 <- prediction(nb_pred_prob[,2], PersonalLoanTest$Personal.Loan)
+nb.perf <- performance(rpart_pred_prob_2,"tpr","fpr")
+
+plot(rpart.perf, main = "ROC Curves", col="red", lwd=2)
+plot(knn.perf, add = TRUE, col="blue", lwd=2)
+plot(nb.perf, add = TRUE, col="yellow", lwd=2)
+abline(a=0,b=1,lwd=2,lty=2,col="gray")
+
+```
+
+
+
+
