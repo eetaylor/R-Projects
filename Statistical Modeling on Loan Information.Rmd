@@ -1,0 +1,149 @@
+---
+title: "HW #1 R Markdown"
+author: "Emily T"
+date: "3/25/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# KNN Model 
+```{r KNN Model}
+bank.df <- read.csv("/Users/emmydoo19/Desktop/BIA\ 6301/UniversalBank.csv")
+dim(bank.df)
+
+bank.df$Personal.Loan.Yes <- ifelse(bank.df$Personal.Loan== 1, "Yes", "No")
+bank.df<-bank.df[,c(15,1:14)]
+bank.df<-bank.df[,-2]
+bank.df<-bank.df[,-5]
+bank.df<-bank.df[,-9]
+
+ZBank <- as.data.frame(scale(bank.df[,c(2:5,7)]))
+
+library(psych)
+describe(bank.df$Age)
+describe(ZBank$Age)
+
+
+ZDataCombined<-cbind(bank.df[,c(1,6,8:12)], ZBank[,])
+ZDataCombined<-ZDataCombined[complete.cases(ZDataCombined),]
+
+TrainZBank <- ZDataCombined[1:4000, 2:12 ]
+TestZBank <-ZDataCombined[4001:5000, 2:12 ]
+
+TrainZBankLabel <- ZDataCombined[1:4000, 1]
+TestZBankLabel <- ZDataCombined[4001:5000, 1]
+
+library(class)
+
+set.seed(123)
+PredictionZBank <- knn(train=TrainZBank, test=TestZBank, cl=TrainZBankLabel, k=63)
+
+KnnZTabs <- table(TestZBankLabel, PredictionZBank)
+KnnZTabs
+
+prop.table(KnnZTabs)
+
+```
+
+## Naive Bayes Model 
+```{R Naive Bayes Model}
+bank.df <- read.csv("/Users/emmydoo19/Desktop/BIA\ 6301/UniversalBank.csv")
+bank.df$Personal.Loan <- factor(bank.df$Personal.Loan, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$Securities.Account <- factor(bank.df$Securities.Account, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$CD.Account <- factor(bank.df$CD.Account, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$Online <- factor(bank.df$Online, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$Education <- factor(bank.df$Education, levels = c(1,2,3), labels = c("Undergrad", "Graduate", "Advanced/Professional"))
+bank.df$CreditCard <- factor(bank.df$CreditCard, levels = c(0,1), labels = c("No", "Yes"))
+
+bank.df<-bank.df[,c(10, 1:9, 11:14)]
+bank.df<-bank.df[,c(-2,-6)]
+
+
+str(bank.df)
+
+PersonalLoanTrain <-bank.df[1:4000, ]
+PersonalLoanTest <- bank.df[4001:5000, ]
+
+library(e1071)
+Loan_nb<- naiveBayes(Personal.Loan ~ ., data = PersonalLoanTrain)
+
+nb_pred<- predict(Loan_nb, PersonalLoanTest)
+nb_tabs<- table(nb_pred, PersonalLoanTest$Personal.Loan)
+
+nb_tabs
+
+prop.table(nb_tabs)
+
+```
+
+###Desicion Tree
+```{R Desicion Tree Model}
+bank.df <- read.csv("/Users/emmydoo19/Desktop/BIA\ 6301/UniversalBank.csv")
+bank.df$Personal.Loan <- factor(bank.df$Personal.Loan, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$Securities.Account <- factor(bank.df$Securities.Account, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$CD.Account <- factor(bank.df$CD.Account, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$Online <- factor(bank.df$Online, levels = c(0,1), labels = c("No", "Yes"))
+bank.df$Education <- factor(bank.df$Education, levels = c(1,2,3), labels = c("Undergrad", "Graduate", "Advanced/Professional"))
+bank.df$CreditCard <- factor(bank.df$CreditCard, levels = c(0,1), labels = c("No", "Yes"))
+
+bank.df<-bank.df[,c(10, 1:9, 11:14)]
+bank.df<-bank.df[,c(-2,-6)]
+
+library(rpart)
+library(rpart.plot)
+
+set.seed(123)
+
+PersonalLoanTrain <- bank.df[1:4000, ]
+PersonalLoanTest <- bank.df[4001:5000, ]
+
+prop.table(table(PersonalLoanTrain$Personal.Loan))
+prop.table(table(PersonalLoanTest$Personal.Loan))
+
+set.seed(123)
+PersonalLoanRPart<-rpart(PersonalLoanTrain$Personal.Loan ~., method="class", parms = list(split="gini"), data=PersonalLoanTrain)
+prp(PersonalLoanRPart, type=1, extra=1, split.font=1, varlen = -10)
+
+rpart.plot(PersonalLoanRPart, type=0, extra=101)
+
+cptable<-printcp(PersonalLoanRPart)
+cptable
+plotcp(PersonalLoanRPart, minline=TRUE, col="red") 
+
+set.seed(123)
+PersonalLoanRpartElbow <- rpart(PersonalLoanTrain$Personal.Loan~., method="class", parms = list(split="gini"), control=rpart.control(maxdepth=4), data=PersonalLoanTrain)
+
+rpart.plot(PersonalLoanRpartElbow, type=0, extra=101)
+
+## Now use model on the Test Set##
+
+set.seed(123)
+PersonalLoanRPart<-rpart(PersonalLoanTest$Personal.Loan ~., method="class", parms = list(split="gini"), data=PersonalLoanTest)
+prp(PersonalLoanRPart, type=1, extra=1, split.font=1, varlen = -10)
+
+rpart.plot(PersonalLoanRPart, type=0, extra=101)
+
+cptable<-printcp(PersonalLoanRPart)
+cptable
+plotcp(PersonalLoanRPart, minline=TRUE, col="red") 
+
+set.seed(123)
+PersonalLoanRpartElbow <- rpart(PersonalLoanTest$Personal.Loan~., method="class", parms = list(split="gini"), control=rpart.control(maxdepth=3), data=PersonalLoanTest)
+
+rpart.plot(PersonalLoanRpartElbow, type=0, extra=101)
+
+Tree_Pred<- predict(PersonalLoanRPart, PersonalLoanTest, type = "class")
+Tree_tabs<- table(Tree_Pred, PersonalLoanTest$Personal.Loan)
+
+Tree_tabs
+
+prop.table()
+
+```
+
+
+
+
